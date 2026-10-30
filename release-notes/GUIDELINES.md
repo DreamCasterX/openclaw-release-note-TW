@@ -1,0 +1,317 @@
+# Release Notes Guidelines
+
+This document defines the guidelines for generating release notes for each OpenClaw release.
+
+## Automated Drafts
+
+Gemini-generated notes are review-only Draft PRs, not finished release notes.
+They must be marked `AI 草稿，待人工審閱`, not `Production Ready`.
+Because this automation only reads official release text, it must not claim to
+have inspected upstream source or invent implementation flowcharts. Before
+merging, a reviewer must verify the source, add required three-star flowcharts,
+complete the checklist below, and remove the draft warning. All other content
+requirements still apply. Setup and backfill: [CHECK_UPDATE.md](CHECK_UPDATE.md).
+
+## File Naming Convention
+
+- **Filename**: `release-notes/YYYY-MM-DD.md`
+- **Date**: Use the version date from the release tag (e.g., `v2026.3.7` → `2026-03-07.md`), **not** the date the notes were authored or published.
+- **Header**: Use version only in the title (e.g., `# OpenClaw v2026.02.15 版本發佈說明`). Do not include the date in the title to avoid timezone confusion.
+
+## Document Structure
+
+### 1. Header
+
+Include:
+- Release title with version (no date in title)
+- GitHub Release link (e.g., `[GitHub Release](https://github.com/openclaw/openclaw/releases/tag/v2026.2.15)`)
+
+### 2. Upgrade Overview（升級前必讀）
+
+**Required when the release contains any breaking changes or notable highlights.**
+
+Immediately after the GitHub Release link, include a `## ⚠️ 升級前必讀` section with:
+
+1. **Breaking Changes 摘要** — a table listing each breaking change, its impact, and the required action:
+
+```markdown
+| 項目 | 影響 | 行動 |
+|------|------|------|
+| <change> | <what breaks> | <what to do> |
+```
+
+2. **新功能亮點** — a short bullet list (3–5 items) of the most impactful new features for quick orientation.
+
+**Rules:**
+- Omit this section entirely if the release has no breaking changes and no standout highlights.
+- Keep it concise — this is a quick-reference, not a detailed explanation (details belong in the sections below).
+- Every breaking change rated ⭐⭐⭐ in the Features section **must** appear in this table.
+
+### 3. Overview
+
+Provide a high-level summary using bullet points, grouped by category:
+
+- **功能更新 (Features)** - New capabilities added
+- **安全性提升 (Security)** - Security-related improvements
+- **錯誤修復 (Bug Fixes)** - Bug fixes and stabilizations
+
+Each item should start with the star rating followed by a short description.
+
+**Consistency rule (recommended)**
+- Overview 的每一條項目，應在下方對應分類的 Detailed Sections 中 **至少出現一次**（含相同的 PR/Issue 連結），避免概述與細節不同步。
+
+### 3. Detailed Sections
+
+After the overview, provide detailed sections for each category:
+
+- **功能更新 (Features) - by Star Rating**
+- **安全性提升 (Security) - by Star Rating**
+- **錯誤修復 (Bug Fixes) - by Star Rating**
+
+Within each section, list items in descending order of star rating (⭐⭐⭐ first, then ⭐⭐, then ⭐).
+
+### 4. Item Format
+
+Each item should follow this format:
+
+```markdown
+### ⭐⭐⭐ Item Title ([#PR_NUMBER](https://github.com/openclaw/openclaw/pull/PR_NUMBER))
+- **用途**: What this feature/fix does
+- **解決問題**: Problem it solves
+- **影響**: Impact and benefits
+```
+
+For **⭐⭐⭐ items**, an ASCII solid-line flowchart is **required** immediately after the bullet points, enclosed in a ` ```text ` block. The flowchart must explain how the feature/fix works (not just what it is).
+
+```markdown
+### ⭐⭐⭐ Item Title ([#PR_NUMBER](https://github.com/openclaw/openclaw/pull/PR_NUMBER))
+- **用途**: ...
+- **解決問題**: ...
+- **影響**: ...
+
+```text
+┌─────────────┐     ┌─────────────┐
+│   Step A    │────►│   Step B    │
+└─────────────┘     └─────────────┘
+                          │
+                          ▼
+                    ┌─────────────┐
+                    │   Result    │
+                    └─────────────┘
+```
+```
+
+**Flowchart rules for ⭐⭐⭐ items:**
+- **Source-grounded**: The agent **must navigate the upstream source code** (via `gh search code` + `gh api`) to understand the actual implementation before drawing the chart. Do not infer from PR title or description alone.
+- Use solid-line box-drawing characters only: `┌ ┐ └ ┘ │ ─` for boxes, `────►` for horizontal arrows, `│` + `▼` / `▲` for vertical arrows.
+- Prefer **flow charts** (showing process/sequence) over static block diagrams.
+- Keep it **5–20 lines**; focus on the key flow, not exhaustive detail.
+- The flowchart must **complement** 用途/解決問題/影響 — not replace them.
+- ⭐⭐ (two-star) and ⭐ (one-star) items do **not** require a flowchart (optional).
+
+Always include the PR/Issue number at the end.
+
+#### 引用格式（Link rule, recommended）
+
+- 在 release notes 內出現的 `#PR_NUMBER` / `#ISSUE_NUMBER` **一律要可點**（統一用 Markdown link）。
+  - Upstream OpenClaw PR：`[#12345](https://github.com/openclaw/openclaw/pull/12345)`
+  - 本 repo 的 issue：`[#54](https://github.com/DreamCasterX/openclaw-release-note-TW/issues/54)`
+- GitHub 雖然常會自動把 `#54` 變成連結，但**建議仍用明確的 Markdown link** 以保持一致、避免漏連。
+
+**No PR/Issue number case**
+- 若上游 Release 條目未提供 PR/Issue 編號，請至少：
+  - 連到對應的 GitHub Release（tag）頁面；或
+  - 連到相關的 Security Advisory（GHSA）/Issue（若有）。
+- **不要**自行杜撰 PR/Issue 編號。
+
+此規則可讓讀者快速驗證來源、降低歧義。
+
+### 5. Summary Table
+
+Include a summary table showing:
+
+| 類別 | 3 顆星 | 2 顆星 | 1 顆星 | 摘要 |
+|------|--------|--------|--------|------|
+| 功能更新 | X | X | X | X |
+| 安全性 | X | X | X | X |
+| 錯誤修復 | X | X | X | X |
+| **總計** | X | X | X | X |
+
+### 6. Footer
+
+Include:
+- **發佈日期**: Release date (YYYY-MM-DD)
+- **版本**: Release version (e.g., 2026.02.15)
+- **狀態**: Production Ready
+- **GitHub Release**: Link to the release
+
+## Star Rating Guidelines
+
+Use star ratings to indicate importance:
+
+| Stars | Criteria |
+|-------|----------|
+| ⭐⭐⭐ | Critical - Security fixes, major features, breaking changes, critical bug fixes |
+| ⭐⭐ | Important - Significant improvements, important bug fixes, important features |
+| ⭐ | Minor - Small improvements, optimizations, minor bug fixes, documentation updates |
+| (none) | Routine -日常 maintenance, minor tweaks |
+
+### Star Rating Examples
+
+**⭐⭐⭐ (Critical)**
+- Security vulnerabilities (SHA-1 → SHA-256, container escape prevention)
+- Major new features (Discord Components v2, nested subagents)
+- Critical bug fixes (DM messaging failures, media loss)
+
+**⭐⭐ (Important)**
+- Important security improvements (token redaction, sandbox hardening)
+- Significant functionality (streaming fixes, session continuity)
+- Important quality improvements (XSS prevention, input validation)
+
+**⭐ (Minor)**
+- Usability improvements (emoji support, UX refinements)
+- Minor bug fixes (command deduplication, state restoration)
+- Documentation and tooling improvements
+
+## Language and Style
+
+- **Primary Language**: Traditional Chinese (zh-TW)
+- **Tone**: Professional and neutral
+- **No Personality**: Avoid any persona or character-specific language
+- **Concise**: Be brief but informative
+- **Action-oriented**: Focus on what changed and why it matters
+
+## Content Requirements
+
+### For Each Release
+
+- **Target: at least 10 items per category** (Features, Security, Bug Fixes)
+  - 若上游 release/changelog 該類別本就不足 10 項，則以「完整涵蓋可取得的項目」為準，不強制湊數。
+- **Complete details**: Ensure every item has用途, 解決問題, 影響
+- **PR/Issue references**: Always include PR/Issue numbers（若無則依 Link rule 以 release/advisory 連結替代）
+- **Flowcharts**: Required for all ⭐⭐⭐ items; optional for ⭐⭐ items (see Item Format section)
+
+### Categories
+
+1. **功能更新 (Features)** - New capabilities
+2. **安全性提升 (Security)** - Security-related improvements
+3. **錯誤修復 (Bug Fixes)** - Bug fixes and stabilizations
+
+## Best Practices
+
+1. **Review GitHub releases first** - Always check the official GitHub releases for the target version
+2. **Sort by importance** - Order items by star rating (most important first)
+3. **Include GitHub link** - Add direct link to the release in the header
+4. **Flowcharts for ⭐⭐⭐ items** - Required (not optional) for all 3-star items; optional for ⭐⭐ items.
+   - 偏好流程圖（flow chart）而非靜態方塊圖（box diagram）。使用 `─►`、`▼`、`▲` 箭頭與 `┌┐└┘│─` 邊框繪製。
+   - Keep it brief (5–20 lines) and focused on the key flow.
+   - Flow charts should explain, not replace, 用途/解決問題/影響。
+5. **Use markdown tables** - For summary and complex information
+6. **Proofread** - Ensure all PR links are correct and descriptions are accurate
+
+## Checklist Before Commit
+
+- [ ] GitHub release page reviewed for accuracy
+- [ ] **升級前必讀 section included if release has breaking changes or notable highlights**
+- [ ] **Every ⭐⭐⭐ breaking change appears in the Breaking Changes table**
+- [ ] All items include star ratings
+- [ ] Items sorted by star rating (descending)
+- [ ] All items include PR/Issue numbers (or valid release/advisory links if no PR/Issue)
+- [ ] All items have用途, 解決問題, 影響
+- [ ] **All ⭐⭐⭐ items include an ASCII solid-line flowchart**
+- [ ] Overview items appear in the corresponding detailed sections (same PR/Issue links)
+- [ ] Summary table completed
+- [ ] GitHub release link included
+- [ ] No persona/language (professional only)
+
+## Example File Structure
+
+```markdown
+# OpenClaw v2026.02.15 版本發佈說明
+
+[GitHub Release](https://github.com/openclaw/openclaw/releases/tag/v2026.2.15)
+
+## ⚠️ 升級前必讀
+
+### Breaking Changes 摘要
+
+| 項目 | 影響 | 行動 |
+|------|------|------|
+| <change> | <what breaks> | <what to do> |
+
+### 新功能亮點
+
+- **Feature A** — 一句話說明
+- **Feature B** — 一句話說明
+
+---
+
+## 概述
+
+...
+
+## 功能更新 (Features) - by Star Rating
+
+### ⭐⭐⭐ Item 1 ([#123](https://github.com/openclaw/openclaw/pull/123))
+- **用途**: ...
+- **解決問題**: ...
+- **影響**: ...
+
+```text
+┌──────────────┐     ┌──────────────┐
+│   Before     │────►│    After     │
+└──────────────┘     └──────────────┘
+                           │
+                           ▼
+                     ┌──────────────┐
+                     │   Result     │
+                     └──────────────┘
+```
+
+### ⭐⭐ Item 2 ([#124](https://github.com/openclaw/openclaw/pull/124))
+- **用途**: ...
+- **解決問題**: ...
+- **影響**: ...
+
+```text
+┌──────────────┐
+│   Input      │
+└──────────────┘
+       │
+       ▼
+┌──────────────┐
+│   Process    │
+└──────────────┘
+       │
+       ▼
+┌──────────────┐
+│   Output     │
+└──────────────┘
+```
+
+### ⭐ Item 3
+...
+
+## 安全性提升 (Security) - by Star Rating
+
+...
+
+## 錯誤修復 (Bug Fixes) - by Star Rating
+
+...
+
+## 總結
+
+| 類別 | 3 顆星 | 2 顆星 | 1 顆星 | 摘要 |
+|------|--------|--------|--------|------|
+| ... | ... | ... | ... | ... |
+
+**發佈日期**: 2026-02-15<br>
+**版本**: 2026.02.15<br>
+**狀態**: Production Ready
+**GitHub Release**: [link](https://...)
+```
+
+---
+
+*Last Updated: 2026-03-23*
