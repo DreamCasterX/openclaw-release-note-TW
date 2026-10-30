@@ -1,0 +1,40 @@
+name: Generate OpenClaw Release Notes
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional official release tag to backfill (for example v2026.5.3)"
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: openclaw-release-notes
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check automation without external API calls
+        run: python -m unittest discover -s .github/scripts -p "test_*.py"
+      - name: Generate notes and open a draft PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python .github/scripts/generate_release_notes.py
