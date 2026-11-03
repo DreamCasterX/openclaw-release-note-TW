@@ -4,8 +4,10 @@ import base64
 import datetime
 import json
 import os
+import random
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -18,18 +20,45 @@ class APIError(RuntimeError):
         self.status = status
 
 
-def request_json(url, headers, method="GET", body=None, service="GitHub"):
+# Transient statuses worth retrying: 429 (rate limited) and 503 (overloaded).
+RETRY_STATUSES = {429, 503}
+MAX_ATTEMPTS = 5
+BASE_DELAY = 2.0
+MAX_DELAY = 60.0
+
+
+def retry_delay(attempt, retry_after=None):
+    """Seconds to wait before retry number `attempt` (1-based)."""
+    if retry_after:
+        try:
+            return min(MAX_DELAY, max(0.0, float(retry_after)))
+        except ValueError:
+            pass  # HTTP-date form is not worth parsing here; fall back to backoff.
+    backoff = min(MAX_DELAY, BASE_DELAY * 2 ** (attempt - 1))
+    return backoff + random.uniform(0, backoff / 2)
+
+
+def request_json(url, headers, method="GET", body=None, service="GitHub", retry=False,
+                 sleep=time.sleep):
     data = None if body is None else json.dumps(body).encode("utf-8")
-    request = urllib.request.Request(
-        url, data=data, method=method,
-        headers={**headers, "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=180) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as error:
-        # Do not log request URLs or response bodies containing credentials/content.
-        raise APIError(service, error.code) from None
+    attempts = MAX_ATTEMPTS if retry else 1
+    for attempt in range(1, attempts + 1):
+        request = urllib.request.Request(
+            url, data=data, method=method,
+            headers={**headers, "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as error:
+            if error.code in RETRY_STATUSES and attempt < attempts:
+                delay = retry_delay(attempt, error.headers.get("Retry-After") if error.headers else None)
+                # Do not log request URLs or response bodies containing credentials/content.
+                print(f"::warning::{service} returned HTTP {error.code}; "
+                      f"retry {attempt}/{attempts - 1} in {delay:.1f}s.", file=sys.stderr)
+                sleep(delay)
+                continue
+            raise APIError(service, error.code) from None
 
 
 def github(path, method="GET", body=None):
@@ -117,6 +146,7 @@ def generate(release, guidelines):
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 32768},
         },
         service="Gemini",
+        retry=True,
     )
     candidates = result.get("candidates", [])
     if not candidates or candidates[0].get("finishReason") != "STOP":

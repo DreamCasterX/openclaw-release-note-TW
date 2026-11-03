@@ -3,6 +3,7 @@ import json
 import os
 import unittest
 import urllib.error
+import unittest.mock
 from unittest.mock import patch
 
 import generate_release_notes as notes
@@ -91,6 +92,40 @@ class ReleaseNotesTests(unittest.TestCase):
         with self.assertRaises(notes.APIError) as caught:
             notes.request_json("https://example.test", {})
         self.assertNotIn("secret", str(caught.exception))
+
+    @patch.object(notes.urllib.request, "urlopen")
+    def test_gemini_retries_transient_errors_then_succeeds(self, urlopen):
+        response = unittest.mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = b'{"ok": true}'
+        urlopen.side_effect = [
+            urllib.error.HTTPError("https://example.test", 503, "busy", {}, None),
+            urllib.error.HTTPError("https://example.test", 429, "slow", {"Retry-After": "7"}, None),
+            response,
+        ]
+        sleeps = []
+        result = notes.request_json("https://example.test", {}, "POST", {}, "Gemini",
+                                    retry=True, sleep=sleeps.append)
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(urlopen.call_count, 3)
+        self.assertEqual(len(sleeps), 2)
+        self.assertEqual(sleeps[1], 7.0)
+
+    @patch.object(notes.urllib.request, "urlopen")
+    def test_retry_gives_up_and_skips_permanent_errors(self, urlopen):
+        urlopen.side_effect = urllib.error.HTTPError("https://example.test", 503, "busy", {}, None)
+        sleeps = []
+        with self.assertRaises(notes.APIError) as caught:
+            notes.request_json("https://example.test", {}, service="Gemini",
+                               retry=True, sleep=sleeps.append)
+        self.assertEqual(caught.exception.status, 503)
+        self.assertEqual(urlopen.call_count, notes.MAX_ATTEMPTS)
+        self.assertTrue(all(delay <= notes.MAX_DELAY for delay in sleeps))
+        urlopen.reset_mock()
+        urlopen.side_effect = urllib.error.HTTPError("https://example.test", 400, "bad", {}, None)
+        with self.assertRaises(notes.APIError):
+            notes.request_json("https://example.test", {}, retry=True, sleep=sleeps.append)
+        self.assertEqual(urlopen.call_count, 1)
 
     @patch.object(notes, "github")
     def test_optional_only_ignores_not_found(self, github):
