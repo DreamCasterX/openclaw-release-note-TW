@@ -1,4 +1,4 @@
-"""Generate review-only release notes using public upstream data and Gemini."""
+"""Generate review-only release notes using public upstream data and OpenRouter."""
 
 import base64
 import datetime
@@ -81,12 +81,9 @@ def generate(release, guidelines):
         raise ValueError("Upstream release body is empty; refusing to invent release notes.")
     if len(body) > 150_000:
         raise ValueError("Release body exceeds the input limit; manual review is required.")
-    model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-    if not re.fullmatch(r"[a-zA-Z0-9._-]+", model):
-        raise ValueError("GEMINI_MODEL must be a model ID, without a URL or models/ prefix.")
-    key = os.environ.get("GEMINI_API_KEY")
+    key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
-        raise ValueError("Set the GEMINI_API_KEY repository Actions secret.")
+        raise ValueError("Set the OPENROUTER_API_KEY repository Actions secret.")
     instruction = (
         "You translate public OpenClaw release notes into professional Traditional Chinese "
         "(zh-TW). Return only a Markdown document following the supplied guidelines. "
@@ -103,28 +100,43 @@ def generate(release, guidelines):
         "Do not wrap the whole response in a code fence.\n\nGUIDELINES:\n" + guidelines
     )
     result = request_json(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-        {"x-goog-api-key": key},
+        "https://openrouter.ai/api/v1/chat/completions",
+        {"Authorization": f"Bearer {key}"},
         "POST",
         {
-            "systemInstruction": {"parts": [{"text": instruction}]},
-            "contents": [{"role": "user", "parts": [{"text": json.dumps({
-                "tag": release["tag_name"],
-                "url": release["html_url"],
-                "version_date": release_date(release["tag_name"]),
-                "body": body,
-            }, ensure_ascii=False)}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 32768},
+            "model": "openrouter/free",
+            "messages": [
+                {"role": "system", "content": instruction},
+                {"role": "user", "content": json.dumps({
+                    "tag": release["tag_name"],
+                    "url": release["html_url"],
+                    "version_date": release_date(release["tag_name"]),
+                    "body": body,
+                }, ensure_ascii=False)},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 32768,
         },
-        service="Gemini",
+        service="OpenRouter",
     )
-    candidates = result.get("candidates", [])
-    if not candidates or candidates[0].get("finishReason") != "STOP":
-        raise ValueError("Gemini did not finish normally (blocked or truncated); no PR created.")
-    text = "\n".join(
-        part["text"] for part in candidates[0].get("content", {}).get("parts", [])
-        if "text" in part and not part.get("thought")
-    ).strip()
+    if not isinstance(result, dict):
+        raise ValueError("OpenRouter response must be a JSON object.")
+    choices = result.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        raise ValueError("OpenRouter response is missing a valid choices entry.")
+    choice = choices[0]
+    message = choice.get("message")
+    if not isinstance(message, dict):
+        raise ValueError("OpenRouter response is missing the message object.")
+    refusal = message.get("refusal")
+    if refusal:
+        raise ValueError("OpenRouter refused the request; no PR created.")
+    if choice.get("finish_reason") != "stop":
+        raise ValueError("OpenRouter did not finish normally; no PR created.")
+    content = message.get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("OpenRouter response has missing or empty message content.")
+    text = content.strip()
     validate_notes(text, release)
     warning = (
         "> AI 草稿，待人工審閱。內容依官方 release 翻譯整理，未驗證上游原始碼；"
@@ -202,7 +214,7 @@ def main():
             "ref": f"refs/heads/{branch}", "sha": base_ref["object"]["sha"],
         })
         current = optional_github(f"{repo}/contents/{path}?ref={urllib.parse.quote(branch, safe='')}")
-        # Stop rather than overwrite if main changed while Gemini was generating.
+        # Stop rather than overwrite if main changed while OpenRouter was generating.
         current_text = None if current is None else base64.b64decode(current["content"]).decode("utf-8")
         if current_text != existing:
             raise ValueError("Base notes changed during generation; inspect the branch and retry.")
@@ -222,7 +234,7 @@ def main():
         "draft": True,
         "body": (
             f"Upstream: {expected_url}\n\n"
-            "Gemini-generated Traditional Chinese draft from the public upstream release. "
+            "OpenRouter-generated Traditional Chinese draft from the public upstream release. "
             "No automatic approval or merge.\n\n"
             "- [ ] Verify translation, references and coverage against upstream\n"
             "- [ ] Verify all breaking changes and upgrade instructions\n"

@@ -1,6 +1,6 @@
 # OpenClaw Release Notes 自動更新
 
-此獨立 repo 使用 GitHub Actions + Google Gemini API，直接追蹤
+此獨立 repo 使用 GitHub Actions + OpenRouter Free Models Router，直接追蹤
 `openclaw/openclaw` 官方發布。
 
 ```text
@@ -13,7 +13,7 @@
 檢查預設分支已收錄版本 / 同版本既有 PR
         |
         v
-Gemini 依 GUIDELINES.md 產生繁中草稿
+OpenRouter `openrouter/free` 依 GUIDELINES.md 產生繁中草稿
         |
         v
 基本格式檢查 -> 專用分支 -> Draft PR
@@ -26,13 +26,12 @@ Gemini 依 GUIDELINES.md 產生繁中草稿
 
 1. 將工作流程、腳本與指引合併到此 repo 的預設分支（目前為 `master`）。
 2. 在此 repo 的 **Actions** 頁面確認 workflow 已啟用。
-3. 從 [Google AI Studio](https://aistudio.google.com/apikey) 取得 Gemini API key。
+3. 依 [OpenRouter 文件](https://openrouter.ai/docs/quickstart) 建立 API key，
    在 **Settings → Secrets and variables → Actions → Secrets** 新增
-   `GEMINI_API_KEY`，不要提交到 repo 或貼在 Issue、PR、對話中。
-4. 可在同頁 **Variables** 設定 `GEMINI_MODEL`。預設為
-   `gemini-3.8-flash`；請依自己的 API 專案權限與
-   [模型目錄](https://ai.google.dev/gemini-api/docs/models) 選擇可用模型。
-   Gemini API 的額度、地區限制與費用獨立於 GitHub Copilot 訂閱。
+   `OPENROUTER_API_KEY`。不要提交 key 到 repo 或貼在 Issue、PR、對話中。
+4. 產生器固定呼叫 OpenRouter API 的 `openrouter/free` 路由，無需設定模型變數。
+   免費路由受供應模型、服務狀態與配額限制，可能回傳 HTTP 429 或 502；
+   不保證每次可用，也不代表永遠免費。請查看 OpenRouter 當前的方案與限制。
 5. 在 **Settings → Actions → General → Workflow permissions** 允許
    **Allow GitHub Actions to create and approve pull requests**。
    本流程只建立 PR，不會呼叫核准 API；workflow 宣告最小必要的
@@ -54,18 +53,19 @@ Gemini 依 GUIDELINES.md 產生繁中草稿
 - 檔名使用 tag 的版本日期，而非執行日期。同日修訂版（例如 `-1`）
   會附加到同一份日期文件，不覆蓋已收錄內容。
 - 預設分支已有該版本的官方 URL，或該版本已有 PR（含已關閉 PR）
-  時，不重新呼叫 Gemini、不重複建立。關閉 PR 表示人工拒絕該草稿；
+  時，不重新呼叫 OpenRouter、不重複建立。關閉 PR 表示人工拒絕該草稿；
   如需重做，先處理原 PR 與對應分支。
 - 建 PR 失敗但分支已包含完整文件時，再次執行會沿用分支建立 PR。
   若分支僅建立但寫入失敗，流程會明確報錯，需人工檢查該分支後再重試。
 
 ## 人工審閱與驗證
 
-Gemini 只收到公開的上游 release 內容、版本資訊及本 repo 的公開
+OpenRouter 只收到公開的上游 release 內容、版本資訊及本 repo 的公開
 `GUIDELINES.md`，不會讀取其他工作區內容，也沒有執行工具的權限。
 上游文字視為資料而非指令。輸出經基本格式檢查，但不代表事實正確。
-API 被拒絕、額度不足、輸出截斷或缺少必要章節時，流程失敗，不以
-原文或空文件冒充成功；到 Actions 紀錄查看錯誤。
+API 被拒絕、額度不足、429/502、輸出截斷或缺少必要欄位／章節時，流程
+明確失敗，不以原文或空文件冒充成功；到 Actions 紀錄查看錯誤。所有輸出
+均須人工審閱，不能視為已核實的發佈說明。
 
 自動產物一律為 **Draft PR**，合併前依 `GUIDELINES.md` 核對：
 
@@ -86,4 +86,4 @@ API 被拒絕、額度不足、輸出截斷或缺少必要章節時，流程失�
 python -m unittest discover -s .github\scripts -p "test_*.py"
 ```
 
-測試使用模擬 API，不會消耗 Gemini 額度或建立遠端分支／PR。
+測試使用模擬 API，不會呼叫 OpenRouter 或建立遠端分支／PR。

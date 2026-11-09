@@ -34,7 +34,6 @@ jobs:
       - name: Generate notes and open a draft PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: python .github/scripts/generate_release_notes.py

@@ -1,6 +1,6 @@
 # OpenClaw 繁體中文發佈說明
 
-此獨立 repo 專門整理 [OpenClaw](https://github.com/openclaw/openclaw) 的繁體中文發佈說明。GitHub Actions 會定期檢查官方最新正式版，使用 Google Gemini API 產生待審閱草稿，並建立 **Draft Pull Request**；不會自動核准或合併。
+此獨立 repo 專門整理 [OpenClaw](https://github.com/openclaw/openclaw) 的繁體中文發佈說明。GitHub Actions 會定期檢查官方最新正式版，透過 OpenRouter `openrouter/free` 產生待審閱草稿，並建立 **Draft Pull Request**；不會自動核准或合併。免費 router 受服務狀態與配額限制，可能回傳 429/502，不能保證可用或永遠免費；產生內容必須人工審閱。
 
 ## 內容與流程
 
@@ -12,9 +12,9 @@
 ## 啟用
 
 1. 將自動化檔案合併至此 repo 的預設分支。
-2. 在 repo 的 **Settings → Secrets and variables → Actions → Secrets** 新增 `GEMINI_API_KEY`。金鑰只應存為 GitHub Actions Secret，不要提交至 repo 或貼在 Issue、PR、對話中。
+2. 在 repo 的 **Settings → Secrets and variables → Actions → Secrets** 新增 `OPENROUTER_API_KEY`。金鑰只應存為 GitHub Actions Secret，不要提交至 repo 或貼在 Issue、PR、對話中。產生器固定使用 OpenRouter API 的 `openrouter/free` 模型，不需設定模型變數。
 3. 確認 **Settings → Actions → General → Workflow permissions** 允許 Actions 建立 Pull Request。工作流程只要求 `contents: write` 與 `pull-requests: write`，且只建立 Draft PR。
-4. 前往 **Actions → Generate OpenClaw Release Notes → Run workflow**，先不填 `tag`，手動測試最新正式版。也可在 `GEMINI_MODEL` repo variable 指定可用的 Gemini 模型；未設定時使用 `gemini-3.8-flash`。
+4. 前往 **Actions → Generate OpenClaw Release Notes → Run workflow**，先不填 `tag`，手動測試最新正式版。
 
 排程、API 額度與費用、手動指定 tag 補歷史版本及分支保護注意事項，請參閱[自動更新說明](release-notes/CHECK_UPDATE.md)。
 
@@ -24,4 +24,4 @@
 python -m unittest discover -s .github\scripts -p "test_*.py"
 ```
 
-測試使用模擬 API，不會呼叫 Gemini，也不會建立遠端分支或 Pull Request。
+測試使用模擬 API，不會呼叫 OpenRouter，也不會建立遠端分支或 Pull Request。
