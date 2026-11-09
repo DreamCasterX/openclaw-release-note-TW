@@ -6,7 +6,9 @@
 
 - 發佈說明存放於 `release-notes/YYYY-MM-DD.md`，日期取自版本 tag。
 - `release-notes/GUIDELINES.md` 定義繁中格式、內容與人工審閱要求。
-- 自動草稿只根據公開的官方 Release 內容產生，不會假裝已查閱上游原始碼。合併前須人工核對內容，並為三星項目查閱原始碼、補上流程圖。
+- 自動草稿會同時讀取公開的 GitHub Release 內容，以及 tag 對應的官方 `CHANGELOG/<版本>.md`（例如 `v2026.5.3` 對應 `CHANGELOG/2026.5.3.md`），並在草稿與 PR 說明標示來源。上游文字視為不可信資料；不會依 release 文字中的 URL 擷取來源，也不會假裝已查閱上游原始碼。
+- 若版本專屬 changelog 回傳 404，草稿會明確標示只根據 Release 內容、可能不完整；其他擷取錯誤會停止流程。輸出檢查會從官方 changelog 的 Highlights、Changes、Fixes 等清單項目擷取 `(#PR)` 編號或官方 PR URL，要求有來源候選編號的分類至少產出一則含詳情及可驗證官方 PR 連結的項目；Highlights/Changes 保守視為未分類。沒有候選編號的分類可保持空白，且不保證涵蓋完整或事實正確。
+- 合併前仍須人工核對內容，並為三星項目查閱原始碼、補上流程圖。
 - `release-notes/CHECK_UPDATE.md` 說明啟用、手動補版、重複處理與審閱流程。
 
 ## 啟用
