@@ -13,10 +13,13 @@
 檢查預設分支已收錄版本 / 同版本既有 PR
         |
         v
-OpenRouter `openrouter/free` 依 GUIDELINES.md 產生繁中草稿
+取得 tag 對應 CHANGELOG/<版本>.md（若存在）
         |
         v
-基本格式檢查 -> 專用分支 -> Draft PR
+OpenRouter `openrouter/free` 依兩項來源與 GUIDELINES.md 產生繁中草稿
+        |
+        v
+格式與來源項目檢查 -> 專用分支 -> Draft PR
         |
         v
 人工核對、補齊原始碼驗證與流程圖後合併
@@ -60,12 +63,24 @@ OpenRouter `openrouter/free` 依 GUIDELINES.md 產生繁中草稿
 
 ## 人工審閱與驗證
 
-OpenRouter 只收到公開的上游 release 內容、版本資訊及本 repo 的公開
-`GUIDELINES.md`，不會讀取其他工作區內容，也沒有執行工具的權限。
-上游文字視為資料而非指令。輸出經基本格式檢查，但不代表事實正確。
-API 被拒絕、額度不足、429/502、輸出截斷或缺少必要欄位／章節時，流程
-明確失敗，不以原文或空文件冒充成功；到 Actions 紀錄查看錯誤。所有輸出
-均須人工審閱，不能視為已核實的發佈說明。
+產生器會讀取公開的上游 GitHub Release，以及版本 tag 中
+`CHANGELOG/<tag 去除 v 前綴>.md` 的版本專屬官方 changelog，例如
+`v2026.5.3` 對應 `CHANGELOG/2026.5.3.md`。擷取路徑由已驗證的版本 tag
+組成，不使用 release 文字提供的 URL。來源內容一律視為不可信資料而非指令；
+OpenRouter 只收到上述公開來源、版本資訊及本 repo 的公開 `GUIDELINES.md`，
+不會讀取其他工作區內容，也沒有執行工具的權限。
+
+若官方 changelog 回傳 404，流程會明確將狀態與預期來源 URL 傳給模型及 PR
+說明，並在文件標示只能依 Release 內容整理、可能不完整；不會假裝來源已取得。
+其他 API 錯誤、格式錯誤、過大的來源、OpenRouter 拒絕／額度不足／429/502、
+輸出截斷或缺少必要欄位／章節時，流程明確失敗，不以原文或空文件冒充成功。
+輸出檢查會從 Highlights、Changes、Fixes 等標題下的清單項目擷取 `(#PR)`
+編號或官方 PR URL；Fixes 對應錯誤修復，Highlights/Changes 保守視為未分類。
+有來源候選編號的明確分類至少須列出一則含用途、解決問題、影響及對應官方 PR
+連結的詳細項目；未分類候選至少須在某個詳細分類中出現一則。產生的官方 PR
+連結須與來源候選編號相符。來源沒有候選編號的分類可保持空白。這是防止稀疏
+占位輸出的基本檢查，不會證明涵蓋完整或事實正確。請到 Actions 紀錄查看錯誤；
+所有輸出均須人工審閱，不能視為已核實的發佈說明。
 
 自動產物一律為 **Draft PR**，合併前依 `GUIDELINES.md` 核對：
 
