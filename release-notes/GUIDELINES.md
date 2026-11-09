@@ -4,7 +4,7 @@ This document defines the guidelines for generating release notes for each OpenC
 
 ## Automated Drafts
 
-Gemini-generated notes are review-only Draft PRs, not finished release notes.
+OpenRouter-generated notes are review-only Draft PRs, not finished release notes.
 They must be marked `AI 草稿，待人工審閱`, not `Production Ready`.
 Because this automation only reads official release text, it must not claim to
 have inspected upstream source or invent implementation flowcharts. Before

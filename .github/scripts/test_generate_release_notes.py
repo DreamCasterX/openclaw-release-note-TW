@@ -1,4 +1,5 @@
 import base64
+import io
 import json
 import os
 import unittest
@@ -26,7 +27,7 @@ class ReleaseNotesTests(unittest.TestCase):
     def setUp(self):
         self.env = patch.dict(os.environ, {
             "GITHUB_REPOSITORY": "example/fork", "GH_TOKEN": "test-token",
-            "GEMINI_API_KEY": "test-key", "GEMINI_MODEL": "test-model",
+            "OPENROUTER_API_KEY": "test-key",
             "RELEASE_TAG": "", "GITHUB_STEP_SUMMARY": "",
         })
         self.env.start()
@@ -55,30 +56,77 @@ class ReleaseNotesTests(unittest.TestCase):
             notes.validate_notes(TEXT, {**RELEASE, "body": "## Breaking Changes"})
 
     @patch.object(notes, "request_json")
-    def test_gemini_request_and_draft_warning(self, request):
-        request.return_value = {"candidates": [{
-            "finishReason": "STOP",
-            "content": {"parts": [{"text": TEXT}]},
+    def test_openrouter_request_and_draft_warning(self, request):
+        request.return_value = {"choices": [{
+            "finish_reason": "stop",
+            "message": {"content": TEXT},
         }]}
         result = notes.generate(RELEASE, "guidelines")
         self.assertIn("AI 草稿，待人工審閱", result)
-        self.assertEqual(request.call_args.args[1], {"x-goog-api-key": "test-key"})
-        self.assertNotIn("test-key", request.call_args.args[0])
-        payload = request.call_args.args[3]
         self.assertEqual(
-            json.loads(payload["contents"][0]["parts"][0]["text"])["body"],
+            request.call_args.args[:3],
+            (
+                "https://openrouter.ai/api/v1/chat/completions",
+                {"Authorization": "Bearer test-key"},
+                "POST",
+            ),
+        )
+        self.assertEqual(request.call_args.kwargs["service"], "OpenRouter")
+        payload = request.call_args.args[3]
+        self.assertEqual(payload["model"], "openrouter/free")
+        self.assertEqual([message["role"] for message in payload["messages"]], ["system", "user"])
+        self.assertIn("guidelines", payload["messages"][0]["content"])
+        self.assertNotIn("test-key", payload["messages"][0]["content"])
+        self.assertNotIn("test-key", payload["messages"][1]["content"])
+        self.assertEqual(
+            json.loads(payload["messages"][1]["content"])["body"],
             RELEASE["body"],
         )
 
     @patch.object(notes, "request_json")
-    def test_gemini_truncation_and_safety_block_fail(self, request):
-        for result in ({}, {"candidates": [{"finishReason": "MAX_TOKENS"}]}):
-            request.return_value = result
-            with self.assertRaises(ValueError):
-                notes.generate(RELEASE, "")
+    def test_openrouter_response_validation(self, request):
+        invalid_results = (
+            None,
+            {},
+            {"choices": []},
+            {"choices": [{}]},
+            {"choices": [{"message": None}]},
+            {"choices": [{"message": {}}]},
+            {"choices": [{"message": {"content": "  "}}]},
+            {"choices": [{"message": {"content": ["not", "text"]}}]},
+            {"choices": [{"message": {"content": TEXT, "refusal": "not allowed"}}]},
+            {"choices": [{"finish_reason": "length", "message": {"content": TEXT}}]},
+            {"choices": [{"finish_reason": "content_filter", "message": {"content": TEXT}}]},
+            {"choices": [{"message": {"content": TEXT}}]},
+        )
+        for result in invalid_results:
+            with self.subTest(result=result):
+                request.return_value = result
+                with self.assertRaises(ValueError):
+                    notes.generate(RELEASE, "guidelines")
+
+    @patch.object(notes.urllib.request, "urlopen")
+    def test_request_json_sends_authorization_and_json_body(self, urlopen):
+        expected = {"choices": [{"message": {"content": TEXT}}]}
+        urlopen.return_value = io.BytesIO(json.dumps(expected).encode())
+        payload = {"model": "openrouter/free", "messages": [{"role": "user", "content": "data"}]}
+        result = notes.request_json(
+            "https://openrouter.ai/api/v1/chat/completions",
+            {"Authorization": "Bearer test-key"},
+            "POST",
+            payload,
+            service="OpenRouter",
+        )
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, "https://openrouter.ai/api/v1/chat/completions")
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-key")
+        self.assertEqual(json.loads(request.data), payload)
+        self.assertEqual(result, expected)
 
     def test_missing_secret_and_empty_upstream_fail(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": ""}), self.assertRaises(ValueError):
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": ""}), self.assertRaisesRegex(
+            ValueError, "OPENROUTER_API_KEY"
+        ):
             notes.generate(RELEASE, "")
         with self.assertRaises(ValueError):
             notes.generate({**RELEASE, "body": ""}, "")
@@ -86,11 +134,19 @@ class ReleaseNotesTests(unittest.TestCase):
     @patch.object(notes.urllib.request, "urlopen")
     def test_http_errors_do_not_leak_secrets(self, urlopen):
         urlopen.side_effect = urllib.error.HTTPError(
-            "https://example.test?key=secret", 403, "secret", {}, None,
+            "https://openrouter.ai/api?key=test-key", 502, "test-key", {}, None,
         )
         with self.assertRaises(notes.APIError) as caught:
-            notes.request_json("https://example.test", {})
-        self.assertNotIn("secret", str(caught.exception))
+            notes.request_json(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {"Authorization": "Bearer test-key"},
+                method="POST",
+                body={"prompt": "private"},
+                service="OpenRouter",
+            )
+        self.assertIn("HTTP 502", str(caught.exception))
+        self.assertNotIn("test-key", str(caught.exception))
+        self.assertNotIn("private", str(caught.exception))
 
     @patch.object(notes, "github")
     def test_optional_only_ignores_not_found(self, github):
@@ -102,7 +158,7 @@ class ReleaseNotesTests(unittest.TestCase):
 
     @patch.object(notes, "generate")
     @patch.object(notes, "github")
-    def test_recorded_release_does_not_call_gemini(self, github, generate):
+    def test_recorded_release_does_not_call_openrouter(self, github, generate):
         github.side_effect = [
             {"default_branch": "main"}, RELEASE,
             {"content": base64.b64encode(TEXT.encode()).decode()},
